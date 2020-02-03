@@ -1,9 +1,6 @@
-#include <stdlib.h>
+// #include <stdlib.h> // fopen, fread
 #include <stdint.h> // uint8_t
-#include <stdio.h>
-#include <limits.h>
-
-// LD
+#include <stdio.h>  // printf
 
 // 3 8-bit registers uint8_t
 // Stack pointer, uint8_t
