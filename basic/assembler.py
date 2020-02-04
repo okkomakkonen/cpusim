@@ -1,10 +1,10 @@
-#! /usr/bin/python3
-# Assembles basic CPU simulator assembly to a binary
+"""Assembles basic CPU simulator assembly to a binary
+"""
 import argparse
-import os
 from collections import defaultdict
 
-opcodes = {
+# Operation codes
+OPCODES = {
     'NOP': 0x00,
     'HLT': 0x01,
     'LDA': 0x02,
@@ -17,58 +17,71 @@ opcodes = {
     'JPC': 0x09
 }
 
-whitespace = (' ', '\t')
-comment = ';'
-reference = '%'
-tag_end = ':'
+REGISTERS = ['a', 'b']
+
+WHITESPACE = (' ', '\t')  # Characters that can start a command
+COMMENT = ';'             # Character that starts a comment
+REFERENCE = '%'           # Character that starts a reference
+TAGEND = ':'              # Character at the end of a tag
+
+RESERVED_WORDS = list(OPCODES.keys()) + REGISTERS  # Reserved tokens
 
 
-def is_numeric(n):
-    return n.isnumeric() or (n[2:].isnumeric() and n[:2] in ['0x', '0b'])
-
-
-def strtonum(n):
-    """Converts a string to integer in decimal, binary, hexadecimal or octal.
+def is_numeric(string):
+    """Check if string contains a numeric value in decimal, binary, hexadecimal
+    or octal. A sign is not allowed.
     """
-    if n.startswith('0x'):
-        return int(n[2:], base=16)
-    elif n.startswith('0b'):
-        return int(n[2:], base=2)
-    elif n.startswith('0'):
-        return int(n[1:], base=8)
-    elif n.isnumeric():
-        return int(n)
-    else:
-        raise Exception('Error in string to integer convert')
+    return string.isnumeric() or \
+        (string.startswith(('0x', '0b')) and string[2:].isnumeric())
 
 
-def assemble(in_filename, out_filename, verbosity=0):
-    # Final binary
-    binary = []
+def strtonum(string):
+    """Converts a string to integer in decimal, binary, hexadecimal or octal.
+    Strings with signs are not allowed.
+    """
+    if string.startswith('0x'):            # hexadecimal
+        return int(string[2:], base=16)
+    if string.startswith('0b'):            # binary
+        return int(string[2:], base=2)
+    if string.startswith('0'):             # octal
+        return int(string[1:], base=8)
+    if string.isnumeric():                 # decimal
+        return int(string)
+    raise Exception('Error in string to integer convert')
 
-    # Defined tags
-    tags = {}
-    # Referenced tags
-    references = defaultdict(lambda: list())
+
+def make_binary(in_filename, verbosity=0):
+    """Create bytearray from assembly file
+    """
+    # TODO: divide to other functions
+    binary = []  # Final binary
+    tags = {}  # Defined tags
+    references = defaultdict(list)  # Referenced tags
 
     with open(in_filename, 'r') as in_file:
-        for line in in_file:
-            if line.startswith(whitespace):
-                if line.startswith(comment):
+        for line in in_file:                  # go through all lines in file
+            if line.startswith(WHITESPACE):   # whitespace starts a new command
+                if line.startswith(COMMENT):  # comments are ignored
                     continue
-                for token in line.split():
+                for token in line.split():    # go through all words
 
-                    if token.startswith(comment):
+                    if token.startswith(COMMENT):  # comments are ignored
                         break
 
-                    elif token in opcodes:  # Token is a reserved opcode
-                        binary.append(opcodes[token])
+                    elif token in OPCODES:  # token is a reserved opcode
+                        binary.append(OPCODES[token])
 
-                    elif token.startswith(reference):  # Token is a reference
-                        references[token[1:]].append(len(binary))
-                        binary.append(0)
+                    elif token.startswith(REFERENCE):  # token is a reference
+                        if token[1:] in RESERVED_WORDS:
+                            raise Exception(
+                                f'Parse error: {token[1:]} is not allowed as a reference.')
+                        if token[1:] in REGISTERS:  # token is referencing a register
+                            pass
+                        else:  # token is referencing a tag
+                            references[token[1:]].append(len(binary))
+                            binary.append(0)
 
-                    elif is_numeric(token):
+                    elif is_numeric(token):     # token is a numeral
                         binary.append(strtonum(token))
 
                     else:
@@ -76,14 +89,14 @@ def assemble(in_filename, out_filename, verbosity=0):
 
             else:
                 token = line.strip()
-                if token.endswith(tag_end):  # This is a new tag
+                if token.endswith(TAGEND):  # This is a new tag
                     tags[token[:-1]] = len(binary)
                 else:
                     raise Exception(f'Parse error: Couldn\'t recognise tag {token}')
 
     # Replace references with real values
     for ref in references:
-        if not ref in tags:
+        if ref not in tags:
             # Couldn't resolve reference to any tag
             raise Exception(f'Parse error: Couldn\'t resolve reference {ref}')
         val = tags[ref]
@@ -91,16 +104,31 @@ def assemble(in_filename, out_filename, verbosity=0):
             binary[place] = val
 
     if verbosity >= 1:
-        print(binary)
+        print([hex(b) for b in binary])
 
+    return binary
+
+
+def write_binary(binary, out_filename, verbosity=0):
+    """Write a bytearray to file
+    """
     with open(out_filename, 'wb+') as out_file:
         out_file.write(bytearray(binary))
 
 
+def assemble(in_filename, out_filename, verbosity=0):
+    """Create binary from assebly file and write to file
+    """
+    binary = make_binary(in_filename, verbosity)
+    write_binary(binary, out_filename, verbosity)
+
+
 def main():
+    """Parse command line arguments and assemble code
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("in_filename")
-    parser.add_argument('-o', '--out_filename')
+    parser.add_argument('-o', '--out_filename', default='a.out')
     parser.add_argument('-v', '--verbosity', action='count', default=0)
     args = parser.parse_args()
 

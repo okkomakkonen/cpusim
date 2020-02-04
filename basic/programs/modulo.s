@@ -1,4 +1,4 @@
-  LDA 234   ; load 234 to A register
+  LDA 023 ; load 234 to A register
 loop:
   JPN %end  ; jump to end if value is negative
   SUB 5     ; subtract 5 from A register
