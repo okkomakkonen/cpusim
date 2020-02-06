@@ -60,9 +60,7 @@ void print_control_word(uint16_t control) {
   printf("| ");
 }
 
-void print_status(uint16_t status) {
-  printf("Status: ");
-  uint8_t opcode = (status & 0xff00) >> 8;
+void print_opcode(uint8_t opcode) {
   if (opcode == NUL) printf("NUL ");
   if (opcode == HLT) printf("HLT ");
   if (opcode == NOP) printf("NOP ");
@@ -76,16 +74,26 @@ void print_status(uint16_t status) {
   if (opcode == JPZ) printf("JPZ ");
   if (opcode == JPN) printf("JPN ");
   if (opcode == JPC) printf("JPC ");
+}
+
+void print_flags(uint8_t flags) {
+  if (flags & CF) printf("CF ");
+  if (flags & ZF) printf("ZF ");
+  if (flags & NF) printf("NF ");
+  if (flags & PF) printf("PF ");
+}
+
+void print_status(uint16_t status) {
+  printf("Status: ");
+  uint8_t opcode = (status & 0xff00) >> 8;
+  print_opcode(opcode);
   printf("| ");
 
   uint8_t spc = (status & 0b11100000) >> 5;
   printf("%d | ", spc);
 
   uint8_t flags = (status & 0b11111);
-  if (status & CF) printf("CF ");
-  if (status & ZF) printf("ZF ");
-  if (status & NF) printf("NF ");
-  if (status & PF) printf("PF ");
+  print_flags(flags);
 
 }
 
@@ -195,9 +203,9 @@ void run_cpu(uint8_t mem[]) {
     status = cpu.instr<<8 | cpu.spc<<5 | cpu.flags;
     control = microcode[status];
 
-    // print_control_word(control);
-    // print_registers(cpu);
-    print_status(status);
+    print_control_word(control);
+    // // print_registers(cpu);
+    // print_status(status);
     printf("\n");
 
     // subprogram counter
@@ -249,8 +257,6 @@ void run_cpu(uint8_t mem[]) {
   }
 
   printf("Finished after %d clock cycles\n", clock);
-  printf("A register: %d\n", cpu.a_reg);
-  printf("B register: %d\n", cpu.b_reg);
 
 }
 
