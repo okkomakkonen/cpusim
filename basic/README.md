@@ -4,7 +4,11 @@ This is a basic CPU simulator with a custom assembly language and an assembler.
 ## usage
 Compile the CPU simulator with
 ```shell
-make
+make simulator
+```
+or
+```shell
+make emulator
 ```
 
 Assemble a program with
