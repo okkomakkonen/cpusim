@@ -3,21 +3,33 @@
 import argparse
 from collections import defaultdict
 
+# define HLT 0x00 // halt execution
+# define NOP 0x01 // no operation
+# define LDA 0x02 // load to A register
+# define LDB 0x03 // load to B register
+# define JMP 0x04 // jump to address
+# define ADD 0x05 // add A and B registers to A register
+# define SUB 0x06 // subtract B register from A register
+# define XOR 0x07 // xor A and B registers
+
 # Operation codes
 OPCODES = {
-    'NOP': 0x00,
-    'HLT': 0x01,
+    'HLT': 0x0a,
+    'NOP': 0x01,
     'LDA': 0x02,
-    'ADD': 0x03,
-    'SUB': 0x04,
-    'STA': 0x05,
-    'JMP': 0x06,
-    'JPZ': 0x07,
-    'JPN': 0x08,
-    'JPC': 0x09
+    'LDB': 0x03,
+    'JMP': 0x04,
+    'ADD': 0x05,
+    'SUB': 0x06,
+    'XOR': 0x07,
+    'NOT': 0x0b,
+    'OUT': 0x08,
+    'JPZ': 0x09,
+    'JPN': 0x0b,
+    'JPC': 0x0c
 }
 
-REGISTERS = ['a', 'b']
+REGISTERS = []  # ['a', 'b']
 
 WHITESPACE = (' ', '\t')  # Characters that can start a command
 COMMENT = ';'             # Character that starts a comment
@@ -43,7 +55,7 @@ def strtonum(string):
         return int(string[2:], base=16)
     if string.startswith('0b'):            # binary
         return int(string[2:], base=2)
-    if string.startswith('0'):             # octal
+    if string.startswith('0') and len(string) > 1:  # octal
         return int(string[1:], base=8)
     if string.isnumeric():                 # decimal
         return int(string)
@@ -88,6 +100,8 @@ def make_binary(in_filename, verbosity=0):
                         raise Exception(f'Parse error: Couldn\'t parse {token}')
 
             else:
+                if line.startswith(COMMENT):  # comments are ignored
+                    continue
                 token = line.strip()
                 if token.endswith(TAGEND):  # This is a new tag
                     tags[token[:-1]] = len(binary)

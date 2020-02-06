@@ -1,8 +1,15 @@
-  LDA 023 ; load 234 to A register
+; Calculate A mod n
+  LDA %A
+  LDB %n
 loop:
-  JPN %end  ; jump to end if value is negative
-  SUB 5     ; subtract 5 from A register
-  JMP %loop ; jump to loop
+  JPN %end
+  SUB
+  JMP %loop
 end:
-  ADD 5     ; add 5 to A register
-  HLT       ; halt execution
+  ADD
+  OUT
+  HLT
+A:
+  237
+n:
+  17

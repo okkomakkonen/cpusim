@@ -1,13 +1,14 @@
-; Calculates (A + B - C) ^ C
+; Calculates (A + B - C) and outputs it if it's less than or equal to zero
   NOP
   LDA %A
   LDB %B
   ADD
   LDB %C
   SUB
-  XOR
-  JMP %end
-end:
+  JPZ %out
+  JPN %out
+  HLT
+out:
   OUT
   HLT
 A:
@@ -15,4 +16,4 @@ A:
 B:
   96
 C:
-  45
+  139

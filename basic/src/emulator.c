@@ -17,62 +17,68 @@ void run_cpu(uint8_t mem[]) {
   // Initialize registers with 0
   struct cpu_s cpu = { 0 };
 
+  uint8_t instr;
+
   while (1) {
     // Update loop counter, doesn't affect the cpu
     loop_counter++;
 
     // Fetch instruction at instr_p
-    uint8_t instr = mem[cpu.instr_p];
+    instr = mem[cpu.instr_p];
+
 
     // Decode instruction, execute instruction
     if (instr == NOP) {
       cpu.instr_p++;
-      continue;
     }
     if (instr == HLT) {
       break;
     }
     if (instr == ADD) {
       cpu.flags = 0;
-      uint8_t a = mem[++cpu.instr_p];
-      if (cpu.a_reg > 0xff - a) cpu.flags |= CF;
-      cpu.a_reg += a;
+      if (cpu.a_reg > 0xff - cpu.b_reg) cpu.flags |= CF;
+      cpu.a_reg += cpu.b_reg;
       if (cpu.a_reg == 0) cpu.flags |= ZF;
       cpu.instr_p++;
-      continue;
     }
     if (instr == SUB) {
       cpu.flags = 0;
-      uint8_t a = mem[++cpu.instr_p];
-      if (cpu.a_reg < a) cpu.flags |= NF;
-      cpu.a_reg -= a;
+      if (cpu.a_reg < cpu.b_reg) cpu.flags |= NF;
+      cpu.a_reg -= cpu.b_reg;
       if (cpu.a_reg == 0) cpu.flags |= ZF;
       cpu.instr_p++;
-      continue;
     }
     if (instr == LDA) {
-      cpu.a_reg = mem[++cpu.instr_p];
+      cpu.a_reg = mem[mem[++cpu.instr_p]];
       cpu.instr_p++;
-      continue;
+    }
+    if (instr == LDB) {
+      cpu.b_reg = mem[mem[++cpu.instr_p]];
+      cpu.instr_p++;
     }
     if (instr == JMP) {
-      cpu.instr_p = mem[++cpu.instr_p];
-      continue;
+      cpu.instr_p = mem[mem[++cpu.instr_p]];
     }
     if (instr == JPN) {
       if (cpu.flags & NF) cpu.instr_p = mem[++cpu.instr_p];
-      else cpu.instr_p++;
-      continue;
+      else cpu.instr_p += 2;
     }
     if (instr == JPC) {
       if (cpu.flags & CF) cpu.instr_p = mem[++cpu.instr_p];
-      else cpu.instr_p++;
-      continue;
+      else cpu.instr_p += 2;
     }
     if (instr == JPZ) {
       if (cpu.flags & ZF) cpu.instr_p = mem[++cpu.instr_p];
-      else cpu.instr_p++;
-      continue;
+      else cpu.instr_p += 2;
+    }
+    if (instr == XOR) {
+      cpu.a_reg ^= cpu.b_reg;
+      if (cpu.a_reg == 0) cpu.flags |= ZF;
+      cpu.instr_p++;
+    }
+    if (instr == OUT) {
+      printf("%d\n", cpu.a_reg);
+      cpu.instr_p++;
     }
 
   }
@@ -81,7 +87,6 @@ void run_cpu(uint8_t mem[]) {
   printf("Registers:\n");
   printf("A register: %d\n", cpu.a_reg);
   printf("B register: %d\n", cpu.b_reg);
-  printf("C register: %d\n", cpu.c_reg);
   printf("Stack pointer: %d\n", cpu.stack_p);
   printf("Instruction pointer: %d\n", cpu.instr_p);
   printf("Flags: 0x%02x\n", cpu.flags);

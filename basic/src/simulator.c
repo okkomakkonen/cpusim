@@ -74,6 +74,8 @@ void print_status(uint16_t status) {
   if (opcode == XOR) printf("XOR ");
   if (opcode == OUT) printf("OUT ");
   if (opcode == JPZ) printf("JPZ ");
+  if (opcode == JPN) printf("JPN ");
+  if (opcode == JPC) printf("JPC ");
   printf("| ");
 
   uint8_t spc = (status & 0b11100000) >> 5;
@@ -154,6 +156,24 @@ void init_microcode(uint16_t m[]) {
     }
   }
 
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    if (f & CF) {
+      m[JPC<<8 | 2<<5 | f] = CO | MI;
+      m[JPC<<8 | 3<<5 | f] = MO | CI | RS;
+    } else {
+      m[JPC<<8 | 2<<5 | f] = CE | RS;
+    }
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    if (f & NF) {
+      m[JPN<<8 | 2<<5 | f] = CO | MI;
+      m[JPN<<8 | 3<<5 | f] = MO | CI | RS;
+    } else {
+      m[JPN<<8 | 2<<5 | f] = CE | RS;
+    }
+  }
+
 }
 
 void run_cpu(uint8_t mem[]) {
@@ -168,8 +188,6 @@ void run_cpu(uint8_t mem[]) {
   uint16_t control = 0;
   uint16_t status = 0; // Might be a bad name
 
-  printf("Starting\n");
-
   while (1) {
 
     clock++;
@@ -177,9 +195,9 @@ void run_cpu(uint8_t mem[]) {
     status = cpu.instr<<8 | cpu.spc<<5 | cpu.flags;
     control = microcode[status];
 
-    print_control_word(control);
+    // print_control_word(control);
     // print_registers(cpu);
-    // print_status(status);
+    print_status(status);
     printf("\n");
 
     // subprogram counter
