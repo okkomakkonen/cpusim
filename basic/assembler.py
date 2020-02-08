@@ -22,11 +22,17 @@ OPCODES = {
     'ADD': 0x05,
     'SUB': 0x06,
     'XOR': 0x07,
-    'NOT': 0x0b,
+    'NOT': 0x0d,
     'OUT': 0x08,
     'JPZ': 0x09,
     'JPN': 0x0b,
-    'JPC': 0x0c
+    'JPC': 0x0c,
+    'PSH': 0x0e,
+    'POP': 0x0f,
+    'JSR': 0x10,
+    'RSR': 0x11,
+    'MAB': 0x12,
+    'MBA': 0x13
 }
 
 REGISTERS = []  # ['a', 'b']
@@ -43,8 +49,19 @@ def is_numeric(string):
     """Check if string contains a numeric value in decimal, binary, hexadecimal
     or octal. A sign is not allowed.
     """
-    return string.isnumeric() or \
-        (string.startswith(('0x', '0b')) and string[2:].isnumeric())
+    hex_chars = '0123456789abcdef'
+    bin_chars = '01'
+    octal_chars = '01234567'
+    decimal_chars = '0123456789'
+    if string.startswith('0x') and len(string) > 2:            # hexadecimal
+        return all(c in hex_chars for c in string[2:])
+    if string.startswith('0b') and len(string) > 2:            # binary
+        return all(c in bin_chars for c in string[2:])
+    if string.startswith('0') and len(string) > 1:  # octal
+        return all(c in octal_chars for c in string[1:])
+    if string.isnumeric():                 # decimal
+        return True
+    return False
 
 
 def strtonum(string):
@@ -120,7 +137,7 @@ def make_binary(in_filename, verbosity=0):
     if verbosity >= 1:
         print([hex(b) for b in binary])
 
-    return binary
+    return binary + [0]*(256 - len(binary))
 
 
 def write_binary(binary, out_filename, verbosity=0):
@@ -149,4 +166,5 @@ def main():
     assemble(args.in_filename, args.out_filename, verbosity=args.verbosity)
 
 
-main()
+if __name__ == '__main__':
+    main()

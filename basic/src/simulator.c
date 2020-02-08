@@ -4,7 +4,10 @@
 #include "isa.h"
 
 #define CLOCKS_PER_INSTR 6
-#define CLOCK_SPEED 10      // Hz
+#define CLOCK_SPEED 10000000      // Hz
+
+#define STACK_OFFSET 0xf0
+#define STACK_SIZE 16
 
 // Status code is 16 bits
 // First (MSB) 8 bits are opcode
@@ -13,20 +16,25 @@
 // uint16_t status = opcode << 8 | spc << 5 | flags;
 
 // microcode instructions
-#define CI 0x1    // program counter in
-#define CO 0x2    // program counter out
-#define CE 0x4    // counter enable
-#define AI 0x8    // A register in
-#define AO 0x10   // A register out
-#define BI 0x20   // B register in
-#define BO 0x40   // B register out
-#define MI 0x80   // memory address register in
-#define MO 0x100  // memory buffer register out
-#define II 0x200  // instruction register in
-#define HT 0x400  // halt
-#define RS 0x800  // reset subprogram counter
-#define AL 0x1000 // AL register out
-#define OT 0x2000 // output
+#define CI 0x1     // program counter in
+#define CO 0x2     // program counter out
+#define CE 0x4     // counter enable
+#define AI 0x8     // A register in
+#define AO 0x10    // A register out
+#define BI 0x20    // B register in
+#define BO 0x40    // B register out
+#define AR 0x80    // memory address register in
+#define MO 0x100   // memory buffer register out
+#define II 0x200   // instruction register in
+#define HT 0x400   // halt
+#define RS 0x800   // reset subprogram counter
+#define AL 0x1000  // AL register out
+#define OT 0x2000  // output
+#define SI 0x4000  // stack pointer increase
+#define SD 0x8000  // stack pointer decrease
+#define SO 0x10000 // stack pointer out
+#define WE 0x20000 // write enable
+#define MI 0x40000 // memory buffer register in
 
 struct cpu_s {
   uint8_t a_reg;   // A register
@@ -39,9 +47,10 @@ struct cpu_s {
   uint8_t flags;   // flags register
   uint8_t instr;   // instruction register
   uint8_t al_reg;  // alu register
+  uint8_t stp;     // stack pointer
 };
 
-void print_control_word(uint16_t control) {
+void print_control_word(uint32_t control) {
   printf("Control: ");
   if (control & CI) printf("CI ");
   if (control & CO) printf("CO ");
@@ -50,13 +59,18 @@ void print_control_word(uint16_t control) {
   if (control & AO) printf("AO ");
   if (control & BI) printf("BI ");
   if (control & BO) printf("BO ");
-  if (control & MI) printf("MI ");
+  if (control & AR) printf("AR ");
   if (control & MO) printf("MO ");
   if (control & II) printf("II ");
   if (control & HT) printf("HT ");
   if (control & RS) printf("RS ");
   if (control & AL) printf("AL ");
   if (control & OT) printf("OT ");
+  if (control & SI) printf("SI ");
+  if (control & SD) printf("SD ");
+  if (control & SO) printf("SO ");
+  if (control & WE) printf("WE ");
+  if (control & MI) printf("MI ");
   printf("| ");
 }
 
@@ -74,6 +88,12 @@ void print_opcode(uint8_t opcode) {
   if (opcode == JPZ) printf("JPZ ");
   if (opcode == JPN) printf("JPN ");
   if (opcode == JPC) printf("JPC ");
+  if (opcode == PSH) printf("PSH ");
+  if (opcode == POP) printf("POP ");
+  if (opcode == JSR) printf("JSR ");
+  if (opcode == RSR) printf("RSR ");
+  if (opcode == MAB) printf("MAB ");
+  if (opcode == MBA) printf("MBA ");
 }
 
 void print_flags(uint8_t flags) {
@@ -104,12 +124,12 @@ void print_registers(struct cpu_s cpu) {
 
 }
 
-void init_microcode(uint16_t m[]) {
+void init_microcode(uint32_t m[]) {
 
   // Fetch cycle is the same for all instructions
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
     for (uint16_t i = 0; i <= 0xff; i++) { // Loop through all instructions
-      m[i<<8 | 0<<5 | f] = CO | MI;
+      m[i<<8 | 0<<5 | f] = CO | AR;
       m[i<<8 | 1<<5 | f] = MO | II | CE;
     }
   }
@@ -123,19 +143,19 @@ void init_microcode(uint16_t m[]) {
   }
 
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
-    m[LDA<<8 | 2<<5 | f] = CO | MI;
-    m[LDA<<8 | 3<<5 | f] = MO | MI | CE;
+    m[LDA<<8 | 2<<5 | f] = CO | AR;
+    m[LDA<<8 | 3<<5 | f] = MO | AR | CE;
     m[LDA<<8 | 4<<5 | f] = MO | AI | RS;
   }
 
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
-    m[LDB<<8 | 2<<5 | f] = CO | MI;
-    m[LDB<<8 | 3<<5 | f] = MO | MI | CE;
+    m[LDB<<8 | 2<<5 | f] = CO | AR;
+    m[LDB<<8 | 3<<5 | f] = MO | AR | CE;
     m[LDB<<8 | 4<<5 | f] = MO | BI | RS;
   }
 
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
-    m[JMP<<8 | 2<<5 | f] = CO | MI;
+    m[JMP<<8 | 2<<5 | f] = CO | AR;
     m[JMP<<8 | 3<<5 | f] = MO | CI | RS;
   }
 
@@ -157,7 +177,7 @@ void init_microcode(uint16_t m[]) {
 
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
     if (f & ZF) {
-      m[JPZ<<8 | 2<<5 | f] = CO | MI;
+      m[JPZ<<8 | 2<<5 | f] = CO | AR;
       m[JPZ<<8 | 3<<5 | f] = MO | CI | RS;
     } else {
       m[JPZ<<8 | 2<<5 | f] = CE | RS;
@@ -166,7 +186,7 @@ void init_microcode(uint16_t m[]) {
 
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
     if (f & CF) {
-      m[JPC<<8 | 2<<5 | f] = CO | MI;
+      m[JPC<<8 | 2<<5 | f] = CO | AR;
       m[JPC<<8 | 3<<5 | f] = MO | CI | RS;
     } else {
       m[JPC<<8 | 2<<5 | f] = CE | RS;
@@ -175,11 +195,43 @@ void init_microcode(uint16_t m[]) {
 
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
     if (f & NF) {
-      m[JPN<<8 | 2<<5 | f] = CO | MI;
+      m[JPN<<8 | 2<<5 | f] = CO | AR;
       m[JPN<<8 | 3<<5 | f] = MO | CI | RS;
     } else {
       m[JPN<<8 | 2<<5 | f] = CE | RS;
     }
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    m[PSH<<8 | 2<<5 | f] = SO | AR;
+    m[PSH<<8 | 3<<5 | f] = AO | MI | WE | RS | SI;
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    m[POP<<8 | 2<<5 | f] = SD;
+    m[POP<<8 | 3<<5 | f] = SO | AR;
+    m[POP<<8 | 4<<5 | f] = AI | MO | RS;
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    m[JSR<<8 | 2<<5 | f] = SO | AR;
+    m[JSR<<8 | 3<<5 | f] = CO | MI | WE | SI;
+    m[JSR<<8 | 4<<5 | f] = CO | AR;
+    m[JSR<<8 | 5<<5 | f] = MO | CI | RS;
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    m[RSR<<8 | 2<<5 | f] = SD;
+    m[RSR<<8 | 3<<5 | f] = SO | AR;
+    m[RSR<<8 | 4<<5 | f] = MO | CI | CE | RS;
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    m[MAB<<8 | 2<<5 | f] = AO | BI | RS;
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    m[MBA<<8 | 2<<5 | f] = BO | AI | RS;
   }
 
 }
@@ -190,10 +242,10 @@ void run_cpu(uint8_t mem[]) {
 
   struct cpu_s cpu = { 0 };
 
-  uint16_t microcode[(1<<16) * CLOCKS_PER_INSTR] = { 0 };
+  uint32_t microcode[(1<<16) * CLOCKS_PER_INSTR] = { 0 };
   init_microcode(microcode);
 
-  uint16_t control = 0;
+  uint32_t control = 0;
   uint16_t status = 0; // Might be a bad name
 
   while (1) {
@@ -203,10 +255,10 @@ void run_cpu(uint8_t mem[]) {
     status = cpu.instr<<8 | cpu.spc<<5 | cpu.flags;
     control = microcode[status];
 
-    print_control_word(control);
-    // // print_registers(cpu);
+    // print_control_word(control);
+    // print_registers(cpu);
     // print_status(status);
-    printf("\n");
+    // printf("\n");
 
     // subprogram counter
     cpu.spc = (cpu.spc + 1) % CLOCKS_PER_INSTR;
@@ -217,22 +269,27 @@ void run_cpu(uint8_t mem[]) {
     if (control & AO) cpu.bus = cpu.a_reg;
     if (control & BO) cpu.bus = cpu.b_reg;
     if (control & AL) cpu.bus = cpu.al_reg;
+    if (control & SO) cpu.bus = cpu.stp + STACK_OFFSET;
 
     // Take values from the bus
     if (control & CI) cpu.pc = cpu.bus;
     if (control & AI) cpu.a_reg = cpu.bus;
     if (control & BI) cpu.b_reg = cpu.bus;
-    if (control & MI) cpu.mar = cpu.bus;
+    if (control & AR) cpu.mar = cpu.bus;
     if (control & II) cpu.instr = cpu.bus;
+    if (control & MI) cpu.mbr = cpu.bus;
 
     // Utilities
     if (control & CE) cpu.pc++;
+    if (control & SI) cpu.stp = (cpu.stp + 1) % STACK_SIZE;
+    if (control & SD) cpu.stp = (cpu.stp - 1) % STACK_SIZE;
     if (control & RS) { cpu.spc = 0; cpu.instr = 0; }
     if (control & OT) printf("%d\n", cpu.a_reg);
     if (control & HT) break;
 
     // memory
-    cpu.mbr = mem[cpu.mar];
+    if (control & WE) mem[cpu.mar] = cpu.mbr;
+    else cpu.mbr = mem[cpu.mar];
 
     // alu
     if (cpu.instr == ADD) {
@@ -277,7 +334,12 @@ int main(int argc, char* argv[]) {
       return 1;
     }
 
+    // printf("Memory at start:\n");
+    // for (int i = 0; i < 256; i++) { printf("%02x ", mem[i]); if (i % 16 == 15) printf("\n"); }
+
     run_cpu(mem);
+    // printf("Memory at finish:\n");
+    // for (int i = 0; i < 256; i++) { printf("%02x ", mem[i]); if (i % 16 == 15) printf("\n"); }
 
     fclose(f);
   } else {
