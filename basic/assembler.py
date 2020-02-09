@@ -41,7 +41,7 @@ def is_numeric(string):
     or octal. A sign is not allowed.
     """
     if string and string.startswith('-'):
-        string = string[1:]
+        return is_numeric(string[1:])
     hex_chars = '0123456789abcdef'
     bin_chars = '01'
     octal_chars = '01234567'
