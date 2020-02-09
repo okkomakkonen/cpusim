@@ -3,15 +3,6 @@
 import argparse
 from collections import defaultdict
 
-# define HLT 0x00 // halt execution
-# define NOP 0x01 // no operation
-# define LDA 0x02 // load to A register
-# define LDB 0x03 // load to B register
-# define JMP 0x04 // jump to address
-# define ADD 0x05 // add A and B registers to A register
-# define SUB 0x06 // subtract B register from A register
-# define XOR 0x07 // xor A and B registers
-
 # Operation codes
 OPCODES = {
     'HLT': 0x0a,
@@ -49,10 +40,11 @@ def is_numeric(string):
     """Check if string contains a numeric value in decimal, binary, hexadecimal
     or octal. A sign is not allowed.
     """
+    if string and string.startswith('-'):
+        string = string[1:]
     hex_chars = '0123456789abcdef'
     bin_chars = '01'
     octal_chars = '01234567'
-    decimal_chars = '0123456789'
     if string.startswith('0x') and len(string) > 2:            # hexadecimal
         return all(c in hex_chars for c in string[2:])
     if string.startswith('0b') and len(string) > 2:            # binary
@@ -64,10 +56,18 @@ def is_numeric(string):
     return False
 
 
+def neg(num):
+    """Return two's complement of num
+    """
+    return ((num ^ 0xff) + 1) % 2**8
+
+
 def strtonum(string):
     """Converts a string to integer in decimal, binary, hexadecimal or octal.
     Strings with signs are not allowed.
     """
+    if string and string.startswith('-'):
+        return neg(strtonum(string[1:]))
     if string.startswith('0x'):            # hexadecimal
         return int(string[2:], base=16)
     if string.startswith('0b'):            # binary
@@ -114,7 +114,7 @@ def make_binary(in_filename, verbosity=0):
                         binary.append(strtonum(token))
 
                     else:
-                        raise Exception(f'Parse error: Couldn\'t parse {token}')
+                        raise Exception(f"Parse error: Couldn't parse {token}")
 
             else:
                 if line.startswith(COMMENT):  # comments are ignored
@@ -123,13 +123,13 @@ def make_binary(in_filename, verbosity=0):
                 if token.endswith(TAGEND):  # This is a new tag
                     tags[token[:-1]] = len(binary)
                 else:
-                    raise Exception(f'Parse error: Couldn\'t recognise tag {token}')
+                    raise Exception(f"Parse error: Couldn't recognise tag {token}")
 
     # Replace references with real values
     for ref in references:
         if ref not in tags:
             # Couldn't resolve reference to any tag
-            raise Exception(f'Parse error: Couldn\'t resolve reference {ref}')
+            raise Exception(f"Parse error: Couldn't resolve reference {ref}")
         val = tags[ref]
         for place in references[ref]:
             binary[place] = val
