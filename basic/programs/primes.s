@@ -22,6 +22,8 @@ out:
   JMP %loop
 halt:
   HLT
+
+
 ; return 1 if is prime else 0
 is_prime:
   LDB %one
@@ -36,23 +38,25 @@ is_prime_loop:
   ; test if A == B
   PSH
   SUB
-  JPZ %prime ; jump if B == A
+  JPZ %is_prime_prime ; jump if B == A
   POP
   ; test if A is divisible by B
   PSH
   JSR %mod
-  JPZ %nprime
+  JPZ %is_not_prime
   POP
   JMP %is_prime_loop
-prime:
+is_prime_prime:
   POP
   LDA %one
   RSR
-nprime:
+is_not_prime:
   POP
   LDA %zero
   RSR
-; 0 in A register if divisible by B else 1
+
+
+; A mod B in A register, undefined behavior if B = 0
 mod:
 mod_loop:
   SUB
@@ -61,6 +65,8 @@ mod_loop:
 mod_end:
   ADD ; A is now A mod B
   RSR
+
+
 zero:
   0
 one:

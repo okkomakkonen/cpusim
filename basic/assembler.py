@@ -89,6 +89,8 @@ def make_binary(in_filename, verbosity=0):
 
     with open(in_filename, 'r') as in_file:
         for line in in_file:                  # go through all lines in file
+            if not line.strip():
+                continue
             if line.startswith(WHITESPACE):   # whitespace starts a new command
                 if line.startswith(COMMENT):  # comments are ignored
                     continue
