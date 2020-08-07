@@ -49,6 +49,7 @@ is_prime:
   JSR %mod
   JPZ %is_not_prime
   POP
+  LDB %one
 is_prime_loop:
   ; add four to B
   PSH
