@@ -21,6 +21,7 @@
 #define RSR 0x11 // return from subroutine
 #define MAB 0x12 // move A register to B register
 #define MBA 0x13 // move B register to A register
+#define AND 0x14 // and A and B registers
 
 // Flags
 #define ZF 0x08  // zero flag

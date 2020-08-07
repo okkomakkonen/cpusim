@@ -172,6 +172,10 @@ void init_microcode(uint32_t m[]) {
   }
 
   for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
+    m[AND<<8 | 2<<5 | f] = AL | AI | RS;
+  }
+
+  for (uint8_t f = 0; f < 0b100000; f++) { // Loop through all flags
     m[OUT<<8 | 2<<5 | f] = OT | RS;
   }
 
@@ -307,6 +311,11 @@ void run_cpu(uint8_t mem[]) {
     if (cpu.instr == XOR) {
       cpu.flags = 0;
       cpu.al_reg = cpu.a_reg ^ cpu.b_reg;
+      if (cpu.al_reg == 0) cpu.flags |= ZF;
+    }
+    if (cpu.instr == AND) {
+      cpu.flags = 0;
+      cpu.al_reg = cpu.a_reg & cpu.b_reg;
       if (cpu.al_reg == 0) cpu.flags |= ZF;
     }
 
