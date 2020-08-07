@@ -240,7 +240,7 @@ void init_microcode(uint32_t m[]) {
 
 }
 
-void run_cpu(uint8_t mem[]) {
+uint8_t run_cpu(uint8_t mem[]) {
 
   int clock = 0;
 
@@ -322,39 +322,38 @@ void run_cpu(uint8_t mem[]) {
     usleep(1e6 / CLOCK_SPEED);
   }
 
-  printf("Finished after %d clock cycles\n", clock);
+  fprintf(stderr, "Finished after %d clock cycles\n", clock);
+
+  return cpu.a_reg;
 
 }
 
 int main(int argc, char* argv[]) {
 
-  uint8_t mem[2*256] = { NOP, JMP, 6, 42, 56, 34, LDA, 3, LDB, 4, ADD, LDB, 5, SUB, XOR, HLT };
+  uint8_t mem[512] = { 0 };
 
   if (argc > 1) {
     FILE *f;
     f = fopen(argv[1], "rb");
     if (!f) {
-      printf("Couldn\'t open file.\n");
+      fprintf(stderr, "Couldn\'t open file.\n");
       return 1;
     }
 
-    if (fread(&mem, sizeof(uint8_t), 2*256, f) == 0) {
-      printf("Couldn\'t read file.\n");
+    if (fread(&mem, sizeof(uint8_t), 256, f) != 256 * sizeof(uint8_t)) {
+      fprintf(stderr, "Couldn\'t read correct number of bytes (256).\n");
       return 1;
     }
 
-    // printf("Memory at start:\n");
-    // for (int i = 0; i < 256; i++) { printf("%02x ", mem[i]); if (i % 16 == 15) printf("\n"); }
-
-    run_cpu(mem);
-    // printf("Memory at finish:\n");
-    // for (int i = 0; i < 256; i++) { printf("%02x ", mem[i]); if (i % 16 == 15) printf("\n"); }
+    int r = (int) run_cpu(mem);
 
     fclose(f);
-  } else {
-    run_cpu(mem);
-  }
 
-  return 0;
+    return r;
+
+  } else {
+    fprintf(stderr, "No file\n");
+    return 0;
+  }
 
 }

@@ -141,6 +141,9 @@ def make_binary(in_filename, verbosity=0):
     if verbosity >= 1:
         print([hex(b) for b in binary])
 
+    if len(binary) > 256:
+        raise Exception("Binary is too large")
+
     return binary + [0] * (256 - len(binary))
 
 
