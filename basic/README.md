@@ -6,18 +6,14 @@ Compile the CPU simulator with
 ```shell
 make simulator
 ```
-or
-```shell
-make emulator
-```
 
 Assemble a program with
 ```shell
 mkdir bin
-python3 assembler.py programs/modulo.s -o bin/modulo
+python3 assembler.py programs/primesmod6.s -o bin/primesmod6
 ```
 
 Finally run the program with
 ```shell
-./main bin/modulo
+./main bin/primesmod6
 ```
